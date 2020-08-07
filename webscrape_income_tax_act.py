@@ -9,8 +9,10 @@ import json
 import urllib.request
 from bs4 import BeautifulSoup
 
-url_path = "https://www.incometaxindia.gov.in/_vti_bin/taxmann.iti.webservices/DataWebService.svc/GetFileContentsByCMSID?cval=102120000000075597&grp=Act&searchFilter=%5B%7B%22CrawledPropertyKey%22%3A1%2C%22Value%22%3A%22Act%22%2C%22SearchOperand%22%3A2%7D%2C%7B%22CrawledPropertyKey%22%3A0%2C%22Value%22%3A%22Income-tax%20Act%2C%201961%22%2C%22SearchOperand%22%3A2%7D%2C%7B%22CrawledPropertyKey%22%3A29%2C%22Value%22%3A%222020%22%2C%22SearchOperand%22%3A2%7D%5D&filterBy=S&opt=&k="
-
+act_name_income_tax = "Income Tax Act(1961-2020)"
+act_name_finance_act = "Finance Act, 2020"
+url_path_income_tax = "https://www.incometaxindia.gov.in/_vti_bin/taxmann.iti.webservices/DataWebService.svc/GetFileContentsByCMSID?cval=102120000000075597&grp=Act&searchFilter=%5B%7B%22CrawledPropertyKey%22%3A1%2C%22Value%22%3A%22Act%22%2C%22SearchOperand%22%3A2%7D%2C%7B%22CrawledPropertyKey%22%3A0%2C%22Value%22%3A%22Income-tax%20Act%2C%201961%22%2C%22SearchOperand%22%3A2%7D%2C%7B%22CrawledPropertyKey%22%3A29%2C%22Value%22%3A%222020%22%2C%22SearchOperand%22%3A2%7D%5D&filterBy=S&opt=&k="
+url_path_finance_act = "https://www.incometaxindia.gov.in/_vti_bin/taxmann.iti.webservices/DataWebService.svc/GetFileContentsByCMSID?cval=102520000000111072&grp=Act&searchFilter=%5B%7B%22CrawledPropertyKey%22%3A1%2C%22Value%22%3A%22Act%22%2C%22SearchOperand%22%3A2%7D%2C%7B%22CrawledPropertyKey%22%3A0%2C%22Value%22%3A%22Finance%20Acts%22%2C%22SearchOperand%22%3A2%7D%2C%7B%22CrawledPropertyKey%22%3A29%2C%22Value%22%3A%222020%22%2C%22SearchOperand%22%3A2%7D%5D&filterBy=S&opt=&k="
 sections_dict = {}
 
 
@@ -27,10 +29,16 @@ def start_parse():
         "footnotes": []
     }
 
-    link_to_parse = url_path
+    if input_int == 1:
+        link_to_parse = url_path_income_tax
+        act_name = act_name_income_tax
+    else:
+        link_to_parse = url_path_finance_act
+        act_name = act_name_finance_act
 
     while True:
         json_data = load_json_data(link_to_parse)
+
         if json_data['NextLink'] is not None:
             sections_dict[str(i)] = parse_data(json_data)
             link_to_parse = process_link(json_data)
@@ -41,7 +49,7 @@ def start_parse():
     # write to file
     json_dump = {
         "act_details": {
-            "act_name": "Income Tax Act (1961-2020)",
+            "act_name": act_name,
             "act_no": "",
             "act_year": "",
             "summary": "",
@@ -79,7 +87,7 @@ def start_parse():
     }
 
     # final out to json
-    with open("Income Tax Act (1961-2020)" + '.json', 'w') as write_file:
+    with open(act_name_income_tax if input_int == 1 else act_name_finance_act + '.json', 'w') as write_file:
         json.dump(json_dump, write_file)
 
 
@@ -93,17 +101,27 @@ def load_json_data(parse_url):
 # Gets the title from the json and then processes html content
 def parse_data(jsn_data):
     section_title = jsn_data['Title']
-    section_title = section_title.replace(', Income-tax Act, 1961-2020', '')
+    if input_int == 1:
+        section_title = section_title.replace(', Income-tax Act, 1961-2020', '')
+    else:
+        section_title = section_title.replace(', Finance Acts-2020', '')
+    section_title = section_title.replace(' - ', ' ')
 
     html_content = jsn_data['HtmlContent']
     # html content process
     processed_html_content = process_html_content(html_content)
 
+    # get subtitle from processed html
+    section_subtitle = processed_html_content[0].replace("\n", "")
+
+    # remove the subtitle from processed_html_content
+    del processed_html_content[0]
+
     x = {
         "title": section_title,
-        "subtitle": "",
+        "subtitle": section_subtitle,
         "content": processed_html_content,
-        "footnotes": []
+        "footnotes": ["\n", "\n", "\n"]
     }
     print(x)
     return x
@@ -118,10 +136,16 @@ def process_link(jsn_data):
     cval = split_link[2].replace(r"'", "")
     cval = cval.strip()
 
-    reconstructed_link = "https://www.incometaxindia.gov.in/_vti_bin/taxmann.iti.webservices/DataWebService.svc/GetFileContentsByCMSID?cval=" + cval + \
-                         "&grp=Act&searchFilter=%5B%7B%22CrawledPropertyKey%22%3A1%2C%22Value%22%3A%22Act%22%2C%22SearchOperand%22%3A2%7D%2C%7B%22CrawledPropertyKey%22%3A0%2C%22Value%22%3A%22Income-tax%20Act%2C%201961%22%2C%22SearchOperand%22%3A2%7D%2C%7B%22CrawledPropertyKey%22%3A29%2C%22Value%22%3A%222020%22%2C%22SearchOperand%22%3A2%7D%5D&filterBy=S&opt=&k="
+    reconstructed_link_income_tax = "https://www.incometaxindia.gov.in/_vti_bin/taxmann.iti.webservices/DataWebService.svc/GetFileContentsByCMSID?cval=" + cval + \
+                                    "&grp=Act&searchFilter=%5B%7B%22CrawledPropertyKey%22%3A1%2C%22Value%22%3A%22Act%22%2C%22SearchOperand%22%3A2%7D%2C%7B%22CrawledPropertyKey%22%3A0%2C%22Value%22%3A%22Income-tax%20Act%2C%201961%22%2C%22SearchOperand%22%3A2%7D%2C%7B%22CrawledPropertyKey%22%3A29%2C%22Value%22%3A%222020%22%2C%22SearchOperand%22%3A2%7D%5D&filterBy=S&opt=&k="
 
-    return reconstructed_link
+    reconstructed_link_finance_act = "https://www.incometaxindia.gov.in/_vti_bin/taxmann.iti.webservices/DataWebService.svc/GetFileContentsByCMSID?cval=" + cval + \
+                                     "&grp=Act&searchFilter=%5B%7B%22CrawledPropertyKey%22%3A1%2C%22Value%22%3A%22Act%22%2C%22SearchOperand%22%3A2%7D%2C%7B%22CrawledPropertyKey%22%3A0%2C%22Value%22%3A%22Finance%20Acts%22%2C%22SearchOperand%22%3A2%7D%2C%7B%22CrawledPropertyKey%22%3A29%2C%22Value%22%3A%222020%22%2C%22SearchOperand%22%3A2%7D%5D&filterBy=S&opt=&k="
+
+    if input_int == 1:
+        return reconstructed_link_income_tax
+    else:
+        return reconstructed_link_finance_act
 
 
 # Html content sanitised by removing residual html tags and spaces and adding to a list
@@ -148,4 +172,9 @@ def process_html_content(html_cont):
 
 
 if __name__ == '__main__':
+    print("Which act to scrape: ")
+    print("1. Income Tax Act")
+    print("2. Finance Act")
+    global input_int
+    input_int = int(input('Enter Option:'))
     start_parse()
